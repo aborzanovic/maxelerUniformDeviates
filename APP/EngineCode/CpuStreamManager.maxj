@@ -1,0 +1,55 @@
+package cpustream;
+
+import static com.maxeler.maxcompiler.v2.managers.standard.Manager.link;
+
+import com.maxeler.maxcompiler.v2.kernelcompiler.Kernel;
+import com.maxeler.maxcompiler.v2.managers.BuildConfig;
+import com.maxeler.maxcompiler.v2.managers.engine_interfaces.CPUTypes;
+import com.maxeler.maxcompiler.v2.managers.engine_interfaces.EngineInterface;
+import com.maxeler.maxcompiler.v2.managers.engine_interfaces.InterfaceParam;
+import com.maxeler.maxcompiler.v2.managers.standard.IOLink.IODestination;
+import com.maxeler.maxcompiler.v2.managers.standard.Manager;
+
+public class CpuStreamManager {
+
+	private static final String s_kernelName = "CpuStreamKernel";
+
+	public static void main(String[] args) {
+		CpuStreamEngineParameters params = new CpuStreamEngineParameters(args);
+		Manager manager = new Manager(params);
+		Kernel kernel   = new CpuStreamKernel(manager.makeKernelParameters(s_kernelName));
+		manager.setKernel(kernel);
+		manager.setIO(
+			link("x",   IODestination.CPU),
+			link("s", IODestination.CPU));
+
+		manager.createSLiCinterface(interfaceDefault());
+		
+		configBuild(manager, params);
+		
+		manager.build();
+	}
+
+	private static EngineInterface interfaceDefault() {
+		EngineInterface engine_interface = new EngineInterface();
+		CPUTypes   typeOut = CPUTypes.FLOAT;
+		int        sizeOut = typeOut.sizeInBytes();
+		CPUTypes   typeIn = CPUTypes.INT;
+		int        sizeIn = typeIn.sizeInBytes();
+
+		InterfaceParam  N    = engine_interface.addParam("N", CPUTypes.INT);
+
+		engine_interface.setTicks(s_kernelName, N);
+		engine_interface.setStream("x",   typeIn, N * sizeIn);
+		engine_interface.setStream("s", typeOut, N * sizeOut);
+		return engine_interface;
+	}
+	
+	private static void configBuild(Manager manager, CpuStreamEngineParameters params) {
+		manager.setEnableStreamStatusBlocks(false);
+		BuildConfig buildConfig = manager.getBuildConfig();
+		buildConfig.setMPPRCostTableSearchRange(params.getMPPRStartCT(), params.getMPPREndCT());
+		buildConfig.setMPPRParallelism(params.getMPPRThreads());
+		buildConfig.setMPPRRetryNearMissesThreshold(params.getMPPRRetryThreshold());
+	}
+}
